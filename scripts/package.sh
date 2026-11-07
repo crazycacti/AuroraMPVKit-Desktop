@@ -167,7 +167,9 @@ case $target in
 		;;
 	windows-*)
 		license angle-headers/LICENSE ANGLE-BSD-3-Clause.txt
-		cp /ucrt64/share/licenses/winpthreads/COPYING "$out/licenses/winpthreads-COPYING.txt"
+		winpthreads_license=$(find /ucrt64/share/licenses -ipath '*winpthread*' -iname 'COPYING*' | head -n1)
+		[ -n "$winpthreads_license" ] || { echo "winpthreads license not found under /ucrt64/share/licenses" >&2; exit 1; }
+		cp "$winpthreads_license" "$out/licenses/winpthreads-COPYING.txt"
 		nv_license
 		license zlib/LICENSE zlib-LICENSE.txt
 		license libiconv/COPYING.LIB libiconv-LGPL-2.1.txt
