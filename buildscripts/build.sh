@@ -172,7 +172,8 @@ build_ffmpeg () {
 			;;
 		windows)
 			args+=(--enable-d3d11va --enable-dxva2 --enable-ffnvcodec --enable-nvdec --enable-cuvid
-				--enable-schannel --enable-w32threads)
+				--enable-schannel --enable-w32threads
+				--extra-libs="-Wl,-Bstatic -lwinpthread -Wl,-Bdynamic")
 			;;
 	esac
 	(cd "$b" && "$(srcdir ffmpeg)/configure" "${args[@]}") || { tail -n 60 "$b/ffbuild/config.log"; exit 1; }

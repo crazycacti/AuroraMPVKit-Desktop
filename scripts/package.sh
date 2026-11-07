@@ -167,6 +167,7 @@ case $target in
 		;;
 	windows-*)
 		license angle-headers/LICENSE ANGLE-BSD-3-Clause.txt
+		cp /ucrt64/share/licenses/winpthreads/COPYING "$out/licenses/winpthreads-COPYING.txt"
 		nv_license
 		license zlib/LICENSE zlib-LICENSE.txt
 		license libiconv/COPYING.LIB libiconv-LGPL-2.1.txt
