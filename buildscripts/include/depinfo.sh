@@ -1,0 +1,53 @@
+#!/bin/bash
+
+v_zlib=1.3.1
+v_libiconv=1.18
+v_mbedtls=3.6.7
+v_dav1d=1.5.4
+v_ffmpeg=n9.0.2
+v_nvcodec=n13.1.15.0
+v_freetype=2.15.0
+v_harfbuzz=15.0.0
+v_fribidi=1.0.17
+v_unibreak=8.0
+v_libass=0.17.5
+v_lcms2=2.19.1
+v_libplacebo=v7.387.0
+v_uchardet=0.0.8
+v_luajit=2.1
+v_mujs=1.3.7
+v_libdrm=2.4.134
+v_libdisplay_info=0.4.0
+c_angle=c966e7527f6cd1d688e6dfeef0edc2ae947bc927
+v_mpv=v0.42.0
+
+# git: commit each tag must resolve to; tarballs: SHA-256 of the release file
+c_dav1d=54706fc6bc0cdecab7e9593974a4039cc038fca7
+c_ffmpeg=946fcce07b6dcd0331c8cc609192aeff5e1924f8
+c_nvcodec=0a6fba9a2820628b8103464f4c8753ee05838baa
+c_freetype=37515cf56ba3349656049edbed89ffc6f6466f2d
+c_libass=4a05d8127f525943ebf45fdc6497c9e665947f0d
+c_lcms2=21c582a594fe5279f90c0b93437c398f93bf62b0
+c_libplacebo=275f7dea27924cdd34ab2e6c20e448b6bc4fab65
+c_uchardet=ae6302a016088ad07177f86d417b20010053632b
+c_luajit=ea9eb7edb5eac4a9d175d74523db34fac0fa5180
+c_mujs=05cd646bad083ed45e9e1c9846ea671d461ced30
+c_libdrm=e984d448b8b17aab853369e6c203e53719f46de1
+c_libdisplay_info=c67a3e9bedb05ab61c7443704a1a107e76254595
+c_mpv=b0841e8c4d156b8403dc1876c4cbd9011eb583f3
+
+s_zlib=38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32
+s_libiconv=3b08f5f4f9b4eb82f151a7040bfd6fe6c6fb922efe4b1659c66ea933276965e8
+s_mbedtls=a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6
+s_fribidi=6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2
+s_harfbuzz=968536e9abd782f07f7954044c0c4020199fcdd39b41d221ec42d2a3be4a44df
+s_unibreak=9c4fad6e517338a098373acc9f35579ae2c325e6446666fb9ac2666ba15ceba4
+
+angle_files=(
+	"include/EGL/egl.h b9669499729432653659b99ec9e92f3defed9207c480ec7926024f424e693f9a"
+	"include/EGL/eglext.h 92fe2e491f9374afb88e9c8d96be7288f33f27db97d06610ba5671ea732f8aae"
+	"include/EGL/eglext_angle.h 5419ad972070c9b74a477a4dfe589b3892ffec6ba99eb2d56b4cf8a4d267deef"
+	"include/EGL/eglplatform.h b748729767798d85ecf8e1923552879328a76d572327b641ce737549b391cc9c"
+	"include/KHR/khrplatform.h e206a6931f98ffe1c5c7ece69c4f94bbe1c9279243f40cbe7782848a0d3fa2de"
+	"LICENSE bf4da21bd20bcfb5b60b7ecc67fa864a79be049e21d6178076887f178dd6c71a"
+)

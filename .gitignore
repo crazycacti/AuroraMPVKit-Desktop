@@ -1,0 +1,6 @@
+/buildscripts/deps/
+/buildscripts/build/
+/buildscripts/prefix/
+/dist/
+/check/
+.DS_Store

@@ -1,0 +1,258 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  MESON_VERSION: '1.12.1'
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      kit: ${{ steps.v.outputs.kit }}
+    steps:
+      - id: v
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "kit=${GITHUB_REF_NAME#v}" >>"$GITHUB_OUTPUT"
+          else
+            echo "kit=ci-${GITHUB_SHA::7}" >>"$GITHUB_OUTPUT"
+          fi
+
+  macos:
+    name: macos (${{ matrix.arch }})
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    env:
+      KIT: ${{ needs.version.outputs.kit }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install build tools
+        run: |
+          brew install ninja nasm pkgconf
+          pipx install "meson==$MESON_VERSION"
+
+      - name: Download sources
+        run: buildscripts/include/download-deps.sh
+
+      - name: Build mpv and dependencies
+        run: buildscripts/build.sh macos
+
+      - name: Package
+        run: scripts/package.sh macos-${{ matrix.arch }} "$KIT"
+
+      - name: Check licenses
+        run: |
+          set -o pipefail
+          scripts/check-license.sh "dist/aurora-mpv-desktop-$KIT-macos-${{ matrix.arch }}.tar.xz" \
+            buildscripts/build/macos-${{ matrix.arch }}/mpv-build/config.h \
+            buildscripts/build/macos-${{ matrix.arch }}/ffmpeg/config.h | tee "dist/license-check-macos-${{ matrix.arch }}.txt"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kit-macos-${{ matrix.arch }}
+          path: dist/
+          retention-days: 30
+
+  linux:
+    needs: version
+    runs-on: ubuntu-24.04
+    container: ubuntu:22.04
+    env:
+      KIT: ${{ needs.version.outputs.kit }}
+    timeout-minutes: 120
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install build dependencies
+        run: buildscripts/ci/linux-packages.sh
+
+      - name: Download sources
+        run: buildscripts/include/download-deps.sh
+
+      - name: Build mpv and dependencies
+        run: buildscripts/build.sh linux
+
+      - name: Package
+        run: scripts/package.sh linux-x86_64 "$KIT"
+
+      - name: Check licenses
+        shell: bash
+        run: |
+          set -o pipefail
+          scripts/check-license.sh "dist/aurora-mpv-desktop-$KIT-linux-x86_64.tar.xz" \
+            buildscripts/build/linux-x86_64/mpv-build/config.h \
+            buildscripts/build/linux-x86_64/ffmpeg/config.h | tee dist/license-check-linux-x86_64.txt
+
+      - name: Load test
+        shell: bash
+        run: |
+          set -o pipefail
+          kit=$(mktemp -d)
+          tar -xJf "dist/aurora-mpv-desktop-$KIT-linux-x86_64.tar.xz" -C "$kit"
+          ldd "$kit"/*/lib/libmpv.so.2 | tee /dev/stderr | grep -q 'not found' && exit 1 || true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kit-linux-x86_64
+          path: dist/
+          retention-days: 30
+
+  windows:
+    needs: version
+    runs-on: windows-2025
+    env:
+      KIT: ${{ needs.version.outputs.kit }}
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - run: git config --global core.autocrlf false
+        shell: pwsh
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git make patch diffutils file tar xz curl
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-meson
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-nasm
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Download sources
+        run: buildscripts/include/download-deps.sh
+
+      - name: Build mpv and dependencies
+        run: buildscripts/build.sh windows
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: meson-logs-windows
+          path: buildscripts/build/windows-x86_64/*/meson-logs/meson-log.txt
+          retention-days: 7
+
+      - name: Package
+        run: scripts/package.sh windows-x86_64 "$KIT"
+
+      - name: Check licenses
+        run: |
+          set -o pipefail
+          scripts/check-license.sh "dist/aurora-mpv-desktop-$KIT-windows-x86_64.tar.xz" \
+            buildscripts/build/windows-x86_64/mpv-build/config.h \
+            buildscripts/build/windows-x86_64/ffmpeg/config.h | tee dist/license-check-windows-x86_64.txt
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kit-windows-x86_64
+          path: dist/
+          retention-days: 30
+
+  package:
+    needs: [version, macos, linux, windows]
+    runs-on: macos-15
+    env:
+      KIT: ${{ needs.version.outputs.kit }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: kit-*
+          merge-multiple: true
+          path: dist
+
+      - name: Universal macOS kit
+        run: |
+          v="$KIT"
+          scripts/lipo-universal.sh "dist/aurora-mpv-desktop-$v-macos-arm64.tar.xz" "dist/aurora-mpv-desktop-$v-macos-x86_64.tar.xz" "$v"
+          set -o pipefail
+          scripts/check-license.sh "dist/aurora-mpv-desktop-$v-macos-universal.tar.xz" | tee dist/license-check-macos-universal.txt
+
+      - name: Source archive
+        run: |
+          buildscripts/include/download-deps.sh
+          scripts/source-archive.sh "$KIT"
+
+      - name: Checksums and summary
+        run: |
+          cd dist
+          cat license-check-*.txt >license-check.txt
+          rm license-check-*.txt
+          cp ../NOTICES NOTICES.txt
+          shasum -a 256 *.tar.xz license-check.txt NOTICES.txt >SHA256SUMS
+          ls -l
+          { echo '```'; cat license-check.txt; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "LGPL libmpv and FFmpeg for Aurora on macOS, Windows and Linux. The sources archive holds the exact mpv, FFmpeg and dependency sources, the patch and the build scripts used for this release. See README.md for configure flags and NOTICES.txt for licenses."
